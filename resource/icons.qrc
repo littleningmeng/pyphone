@@ -1,0 +1,29 @@
+<RCC>
+  <qresource prefix="app">
+    <file>icons/app/unlock.png</file>
+    <file>icons.qrc</file>
+    <file>icons/app/android.png</file>
+    <file>icons/app/donate.jpg</file>
+    <file>icons/app/donate.png</file>
+    <file>icons/logo/pyphone48.png</file>
+    <file>icons/app/connected.png</file>
+    <file>icons/app/disconnected.png</file>
+    <file>icons/app/click.png</file>
+    <file>icons/app/plugin_off.png</file>
+    <file>icons/app/plugin_on.png</file>
+    <file>icons/app/back.png</file>
+    <file>icons/app/camera.png</file>
+    <file>icons/app/customer_off.png</file>
+    <file>icons/app/customer_on.png</file>
+    <file>icons/app/power_off.png</file>
+    <file>icons/app/power_on.png</file>
+    <file>icons/app/forbidden.png</file>
+    <file>icons/app/home.png</file>
+    <file>icons/app/keyboard.png</file>
+    <file>icons/app/record.png</file>
+    <file>icons/app/recording.png</file>
+    <file>icons/app/about.png</file>
+    <file>icons/app/menu.png</file>
+    <file>icons/app/rotation.png</file>
+  </qresource>
+</RCC>

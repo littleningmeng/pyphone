@@ -1,0 +1,6 @@
+/*.tgz
+/.env
+/obj/
+/prebuilt/
+/temp/
+/jni/vendor/

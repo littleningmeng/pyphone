@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>333</width>
+    <height>747</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>PyPhone</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="icons.qrc">
+    <normaloff>:/app/icons/logo/pyphone48.png</normaloff>:/app/icons/logo/pyphone48.png</iconset>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="0">
+     <widget class="Screen" name="screen">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="sizeIncrement">
+       <size>
+        <width>0</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="styleSheet">
+       <string notr="true"/>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::StyledPanel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>333</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="enabled">
+     <bool>true</bool>
+    </property>
+    <property name="title">
+     <string>&amp;File</string>
+    </property>
+    <addaction name="actionStart"/>
+    <addaction name="actionStop"/>
+    <addaction name="separator"/>
+    <addaction name="actionShare"/>
+    <addaction name="separator"/>
+    <addaction name="actionRemote_screen"/>
+    <addaction name="separator"/>
+    <addaction name="actionQuit"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>&amp;Help</string>
+    </property>
+    <addaction name="actionDonate"/>
+    <addaction name="actionAbout"/>
+   </widget>
+   <widget class="QMenu" name="menuEdit">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
+    <property name="title">
+     <string>&amp;Edit</string>
+    </property>
+    <addaction name="actionLock_Unlocak"/>
+    <addaction name="separator"/>
+    <addaction name="actionHome"/>
+    <addaction name="actionBack"/>
+    <addaction name="actionMenu"/>
+    <addaction name="separator"/>
+    <addaction name="actionRecorder"/>
+    <addaction name="actionScreenshots"/>
+    <addaction name="separator"/>
+    <addaction name="actionSend_text"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuEdit"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusBar"/>
+  <action name="actionStart">
+   <property name="icon">
+    <iconset resource="icons.qrc">
+     <normaloff>:/app/icons/app/connected.png</normaloff>:/app/icons/app/connected.png</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Start</string>
+   </property>
+   <property name="shortcut">
+    <string>F5</string>
+   </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
+   </property>
+  </action>
+  <action name="actionDonate">
+   <property name="icon">
+    <iconset resource="icons.qrc">
+     <normaloff>:/app/icons/app/donate.png</normaloff>:/app/icons/app/donate.png</iconset>
+   </property>
+   <property name="text">
+    <string>Donate</string>
+   </property>
+  </action>
+  <action name="actionStop">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="icons.qrc">
+     <normaloff>:/app/icons/app/disconnected.png</normaloff>:/app/icons/app/disconnected.png</iconset>
+   </property>
+   <property name="text">
+    <string>S&amp;top</string>
+   </property>
+   <property name="shortcut">
+    <string>F4</string>
+   </property>
+  </action>
+  <action name="actionShare">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="icons.qrc">
+     <normaloff>:/app/icons/app/plugin_on.png</normaloff>:/app/icons/app/plugin_on.png</iconset>
+   </property>
+   <property name="text">
+    <string>Enable s&amp;hare</string>
+   </property>
+  </action>
+  <action name="actionRemote_screen">
+   <property name="icon">
+    <iconset resource="icons.qrc">
+     <normaloff>:/app/icons/app/customer_on.png</normaloff>:/app/icons/app/customer_on.png</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Connect remote screen ...</string>
+   </property>
+  </action>
+  <action name="actionSend_Text">
+   <property name="text">
+    <string>Send Text</string>
+   </property>
+  </action>
+  <action name="actionHome">
+   <property name="icon">
+    <iconset resource="icons.qrc">
+     <normaloff>:/app/icons/app/home.png</normaloff>:/app/icons/app/home.png</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Home</string>
+   </property>
+   <property name="shortcut">
+    <string>Home</string>
+   </property>
+  </action>
+  <action name="actionLock_Unlocak">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="icons.qrc">
+     <normaloff>:/app/icons/app/unlock.png</normaloff>:/app/icons/app/unlock.png</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Lock/Unlocak</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+L</string>
+   </property>
+  </action>
+  <action name="actionBack">
+   <property name="text">
+    <string>&amp;Back</string>
+   </property>
+  </action>
+  <action name="actionMenu">
+   <property name="text">
+    <string>&amp;Menu</string>
+   </property>
+  </action>
+  <action name="actionSend_text">
+   <property name="icon">
+    <iconset resource="icons.qrc">
+     <normaloff>:/app/icons/app/keyboard.png</normaloff>:/app/icons/app/keyboard.png</iconset>
+   </property>
+   <property name="text">
+    <string>Send te&amp;xt</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+T</string>
+   </property>
+  </action>
+  <action name="actionDisable_share">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Disable share</string>
+   </property>
+  </action>
+  <action name="actionRecorder">
+   <property name="icon">
+    <iconset resource="icons.qrc">
+     <normaloff>:/app/icons/app/recording.png</normaloff>:/app/icons/app/recording.png</iconset>
+   </property>
+   <property name="text">
+    <string>Start &amp;video recorder...</string>
+   </property>
+   <property name="shortcut">
+    <string>F9</string>
+   </property>
+  </action>
+  <action name="actionScreenshots">
+   <property name="text">
+    <string>S&amp;creenshots</string>
+   </property>
+  </action>
+  <action name="actionStop_recorder">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Stop video recorder...</string>
+   </property>
+  </action>
+  <action name="actionQuit">
+   <property name="text">
+    <string>&amp;Quit</string>
+   </property>
+  </action>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>Screen</class>
+   <extends>QFrame</extends>
+   <header location="global">widgets/screen.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="icons.qrc"/>
+ </resources>
+ <connections/>
+</ui>
