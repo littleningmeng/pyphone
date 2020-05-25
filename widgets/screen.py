@@ -7,8 +7,8 @@ from logger import logger
 
 class Screen(QFrame):
 
-    DEFAULT_HEIGHT = 1080
-    MIN_HEIGHT = 480
+    DEFAULT_HEIGHT = 720
+    MIN_HEIGHT = 720
     MAX_HEIGHT = 2340
     try:
         SCREEN_HEIGHT = int(getenv("PYPHONE_HEIGHT", DEFAULT_HEIGHT))
@@ -40,6 +40,8 @@ class Screen(QFrame):
         self.angle = 0
         self.screen_width = 0
         self.screen_height = 0
+        self.real_height = 0
+        self.real_width = 0
         self.disconnect_callback = None
 
     def set_disconnect_callback(self, callback):
@@ -108,17 +110,32 @@ class Screen(QFrame):
             self.press_x = cur_x
             self.press_y = cur_y
 
-    def fit_size(self, real_height, real_width):
+    def set_real_size(self, real_width, real_height):
+        self.real_width = real_width
+        self.real_height = real_height
+        self.fit_size()
+
+    def fit_size(self, real_width=None, real_height=None):
         """设备窗口尺寸
         注意：minicap 头部的宽高信息并不会因为屏幕方向的旋转而变化，它是绝对的物理尺寸，垂直握持手机，横向为宽，竖向为高
         """
+        if real_width and real_height:
+            self.set_real_size(real_width, real_height)
+        else:
+            if real_height is None:
+                real_height = self.real_height
+            if real_width is None:
+                real_width = self.real_width
         rate = 1.0 * Screen.SCREEN_HEIGHT / real_height
         if self.orientation == self.VERTICAL:
             self.screen_width, self.screen_height = int(rate * real_width), Screen.SCREEN_HEIGHT
         else:
             self.screen_width, self.screen_height = Screen.SCREEN_HEIGHT, int(rate * real_width)
+        logger.debug("fit size to width={width}, height={height} (real_height={h}, real_width={w})".format(
+            width=self.screen_width, height=self.screen_height,
+            h=real_height, w=real_width))
         self.setFixedSize(self.screen_width, self.screen_height)
-        self.parent.setFixedSize(self.parent.sizeHint())
+        self.parent.setFixedSize(self.screen_width, self.screen_height)
         if self.touch:
             self.touch.set_rate(rate)
             self.touch.set_max_xy(self.screen_width, self.screen_height)

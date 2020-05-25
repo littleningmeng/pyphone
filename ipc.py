@@ -20,19 +20,17 @@ class IpcSignal(QObject):
 
 class Ipc(threading.Thread):
 
-    MIN_SHARE_ID = 91040000
-    MAX_SHARE_ID = 91049999
+    MIN_SHARE_ID = 1000
+    MAX_SHARE_ID = 9999
     QUEUE_SIZE_LIMIT = 5
     KEY_LIMIT = 100
-    # 请勿修改该数字
-    MAGIC_NUM = 170104
     # 作为共享提供者，往Redis队列push屏幕数据，并接收Redis操控队列的数据(默认)
     MODE_PRODUCER = 0
     # 作为共享使用者，从Redis队列读取屏幕数据，并往Redis操控队列发送数据
     MODE_CUSTOMER = 1
 
-    FRAME_QUEUE_PREFIX = "f%d_" % MAGIC_NUM
-    TOUCH_QUEUE_PREFIX = "t%d_" % MAGIC_NUM
+    FRAME_QUEUE_PREFIX = "pp-frame:"
+    TOUCH_QUEUE_PREFIX = "pp-touch:"
 
     CMD_STOP = "!STOP"
 
@@ -70,9 +68,7 @@ class Ipc(threading.Thread):
             share_id = randint(self.MIN_SHARE_ID, self.MAX_SHARE_ID)
         logger.debug("use queue: %s, %s" % (tmp_frame_queue, tmp_touch_queue))
         logger.debug("i is %d" % i)
-        if i >= try_limit:
-            logger.warning("!!!!!!! i tried !!!!!!!")
-            share_id = 201701040323
+        assert i < try_limit, "!!!!!!! i tried !!!!!!!"
 
         return share_id
 
@@ -98,7 +94,7 @@ class Ipc(threading.Thread):
         logger.debug("Trying to connect redis server: %s:%s/%d" % (host, port, db))
         self.redis_client = redis.StrictRedis(host=host, port=int(port),
                                               db=db, socket_keepalive=True,
-                                              socket_connect_timeout=2)
+                                              socket_connect_timeout=0.3)
         ret = True
         try:
             self.redis_client.ping()

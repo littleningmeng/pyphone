@@ -2,3 +2,4 @@ pyqt5
 opencv-python
 numpy
 redis
+pure-python-adb

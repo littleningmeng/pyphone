@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-from PyQt5 import QtCore
-from tools import install
-from touch import Touch
-from logger import logger
+import os
+import time
 import threading
 import socket
 import struct
 import select
-import os
-import time
+from PyQt5 import QtCore
+from touch import Touch
+from logger import logger
+import adb_helper
 
 # 不要修改这两个参数，除非minicap协议变更!
 MINICAP_HEAD_SIZE = 24
@@ -54,7 +54,7 @@ class CapScreenSignal(QtCore.QObject):
     minicap_head = QtCore.pyqtSignal(object)
     frame = QtCore.pyqtSignal(bytes)
     minitouch_connect_result = QtCore.pyqtSignal(bool)
-    screenshots = QtCore.pyqtSignal(str)
+    screenshots = QtCore.pyqtSignal(str, bool)
 
     def __init__(self):
         QtCore.QObject.__init__(self)
@@ -88,9 +88,9 @@ class CapScreen(threading.Thread):
 
     def __init__(self,
                  on_connect_result,
-                 on_minicap_head,
+                 on_mini_cap_head,
                  on_frame,
-                 on_minitouch_connect_result,
+                 on_mini_touch_connect_result,
                  on_screenshots_result,
                  screen,
                  host="127.0.0.1",
@@ -98,9 +98,9 @@ class CapScreen(threading.Thread):
         threading.Thread.__init__(self)
         self.signal = CapScreenSignal()
         self.signal.connect_result.connect(on_connect_result)
-        self.signal.minicap_head.connect(on_minicap_head)
+        self.signal.minicap_head.connect(on_mini_cap_head)
         self.signal.frame.connect(on_frame)
-        self.signal.minitouch_connect_result.connect(on_minitouch_connect_result)
+        self.signal.minitouch_connect_result.connect(on_mini_touch_connect_result)
         self.signal.screenshots.connect(on_screenshots_result)
         self.tcpSocket = None
         self.touch = None
@@ -164,26 +164,25 @@ class CapScreen(threading.Thread):
         else:
             return MinicapHead(buff)
 
-    def screenshots(self, dest_path=False):
+    def save_screenshots(self, frame, filepath, show_toast=True):
+        logger.debug("save screenshots to %s" % filepath)
+        path = os.path.dirname(filepath)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        with open(filepath, "wb") as fp:
+            fp.write(frame)
+        self.signal.screenshots.emit(filepath, show_toast)
+
+    def screenshots(self, filepath, show_toast=True):
         if not self.frame_buff:
             return False
-        if not dest_path:
-            dest_path = "./screenshots/{date}".format(date=time.strftime("%y-%m-%d"))
-        if not os.path.exists(dest_path):
-            try:
-                os.makedirs(dest_path)
-            except OSError as err:
-                logger.error("fail to create screenshots path %s, exp: %s" % (dest_path, err))
-                return
-
-        def save(frame, jpg):
-            with open(jpg, "wb") as fp:
-                fp.write(frame)
-            self.signal.screenshots.emit(jpg)
-
-        f = "%s/%s.jpg" % (dest_path, time.strftime("%H-%M-%S"))
-        t = threading.Thread(target=save, args=(self.frame_buff, f))
+        if not filepath:
+            filepath = "./screenshots/{date}/{time}.jpg".format(
+                date=time.strftime("%y-%m-%d"), time=time.strftime("%H-%M-%S"))
+        t = threading.Thread(target=self.save_screenshots, args=(self.frame_buff, filepath, show_toast))
         t.start()
+
+        return True
 
     def is_connected(self):
         return self.tcpSocket is not None
@@ -191,22 +190,16 @@ class CapScreen(threading.Thread):
     def handle_rpc_event(self, op_dict):
         if not self.touch:
             return False
-        self.touch.op(op_dict)
 
-    def stop(self, kill_minicap=False, kill_minitouch=False, kill_rotation_watcher=False):
-        if kill_minicap:
-            ret = install.kill(install.minicap_bin)
-            if not ret:
-                logger.warning("fail to kill %s" % install.minicap_bin)
-        if kill_minitouch:
-            if self.touch:
-                self.touch.stop()
-                self.touch = None
-        if kill_rotation_watcher:
-            ret = install.kill_rotation_watcher()
-            if not ret:
-                logger.warning("fail to kill rotation watcher")
+        cmd = op_dict.get("cmd")
+        if cmd == "screenshots":
+            self.screenshots(op_dict.get("filepath"), show_toast=False)
+        elif cmd == "shell":
+            adb_helper.shell(op_dict.get("param"))
+        else:
+            self.touch.op(op_dict)
 
+    def stop(self):
         if self.tcpSocket:
             self.tcpSocket.close()
             self.tcpSocket = None

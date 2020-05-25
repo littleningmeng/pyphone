@@ -8,9 +8,13 @@ import numpy as np
 def start(val, queue, host=config.REDIS_HOST, port=config.REDIS_PORT, db=config.REDIS_DB):
     print("Connecting share server %s:%d/%d ..." % (host, port, db))
     r = redis.Redis(host, port, db=db)
-    r.ping()
-    print("Connected, waiting frame ...")
+    try:
+        r.ping()
+    except redis.exceptions.ConnectionError:
+        print("Unable to connect redis server!")
+        return False
 
+    print("Connected, waiting frame ...")
     while 1:
         if val.value == 1:
             break
@@ -22,3 +26,4 @@ def start(val, queue, host=config.REDIS_HOST, port=config.REDIS_PORT, db=config.
         cv2.waitKey(1)
 
     print("Disconnect remote screen")
+    return True

@@ -10,16 +10,15 @@ from PyQt5 import QtCore
 
 from ui.ui_mainwindow import Ui_MainWindow
 from cap_screen import CapScreen
-from checker import Checker
 from rotation_watcher import RotationWatcher
-from tools import install
 from logger import logger
 from recorder import recorder
 from ipc import Ipc, IpcSignal
+from key_event import KeyEvent
 from widgets.toast import Toast
 import remote_screen
+import adb_helper
 import version
-import util
 import config
 
 
@@ -28,13 +27,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         QtWidgets.QMainWindow.__init__(self, parent)
         self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
+        self.setup_ui()
         self.ui.screen.set_disconnect_callback(self.on_disconnected)
-        self.setup_tool_bar()
         self.setup_signal()
         self.cap_screen = None
-        self.rw = RotationWatcher(self.on_rotation_changed)
-        self.checker = Checker(self.on_check_result)
+        self.queue = multiprocessing.Queue()
         self.starting_dialog = None
         self.timer = None
         self.check_code = -1
@@ -42,14 +39,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.record_frames = []
         self.record_timer = QtCore.QTimer()
         self.record_timer.timeout.connect(self.on_record_timeout)
-        self.minicap_head = None
+        self.mini_cap_head = None
         self.ipc = None
         # 是否连接过本地手机
         self.cap_used = False
         self.is_first_start = True
         self.customer_running = False
         self.device_name = ""
-
+        self.angle = 0
+        self.virtual_width = config.DEFAULT_WIDTH
+        self.rotation_watcher = None
         self.share_proc = None
         self.share_val = multiprocessing.Value("i", 0)
 
@@ -61,94 +60,114 @@ class MainWindow(QtWidgets.QMainWindow):
         self.donate_view.setWindowTitle(_("Donate"))
         self.donate_scene.addItem(QtWidgets.QGraphicsPixmapItem(QtGui.QPixmap(":/app/icons/app/donate.jpg")))
 
-    def setup_tool_bar(self):
-        # spacer用于占位，这样其它三个按钮就会居右对齐了
-        spacer = QtWidgets.QWidget(self)
-        spacer.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
-        self.ui.tool_bar = QtWidgets.QToolBar(self)
-        self.ui.tool_bar.addWidget(spacer)
-        lock = QtWidgets.QAction(QtGui.QIcon(":/app/icons/app/menu.png"), "", self)
-        lock.triggered.connect(self.KeyEvent.lock_unlock)
-        self.ui.tool_bar.addAction(lock)
-        home = QtWidgets.QAction(QtGui.QIcon(":/app/icons/app/home.png"), "", self)
-        home.triggered.connect(self.KeyEvent.home)
-        self.ui.tool_bar.addAction(home)
-        back = QtWidgets.QAction(QtGui.QIcon(":/app/icons/app/back.png"), "", self)
-        back.triggered.connect(self.KeyEvent.back)
-        self.ui.tool_bar.addAction(back)
-        self.ui.tool_bar.setEnabled(False)
-        self.addToolBar(QtCore.Qt.RightToolBarArea, self.ui.tool_bar)
+    def on_image_quality_action_triggered(self, checked, width, height):
+        """选择画质"""
+        logger.debug("select image quality %dx%d" % (width, height))
+        if width == self.virtual_width:
+            return
+        self.on_rotation_changed(self.angle, width)
+        self.virtual_width = width
+
+    def on_device_action_triggered(self, checked, serial_no):
+        """选择一个设备"""
+        adb_helper.choose_device(serial_no)
+        self.setWindowTitle("pyphone(%s)" % serial_no)
+        self.ui.actionStart.setEnabled(True)
+        real_width, real_height = adb_helper.device_real_size()
+        assert real_height > 0, "Ops! real_height less than 0!"
+        rate = real_height / real_width
+        if real_width not in config.IMAGE_QUALITIES:
+            config.IMAGE_QUALITIES.append(real_width)
+        logger.debug("Image qualities: %s" % config.IMAGE_QUALITIES)
+        self.ui.menuImageQuality.clear()
+        for width in config.IMAGE_QUALITIES:
+            height = int(rate * width)
+            widget = QtWidgets.QRadioButton("%dx%d" % (width, height), self)
+            if width == config.DEFAULT_WIDTH:
+                widget.setChecked(True)
+            action = QtWidgets.QWidgetAction(self)
+            action.setDefaultWidget(widget)
+            widget.clicked.connect(lambda checked_, width_=width, height_=height:
+                                   self.on_image_quality_action_triggered(checked_, width_, height_))
+            self.ui.menuImageQuality.addAction(action)
+
+    def setup_ui(self):
+        self.ui.setupUi(self)
+        serial_no_list = adb_helper.device_serial_no_list()
+        logger.debug("devices: %s" % serial_no_list)
+        # 只有一个设备时，默认选中
+        if len(serial_no_list) == 1:
+            self.on_device_action_triggered(True, serial_no_list[0])
+        for sn in serial_no_list:
+            action = QtWidgets.QAction(sn, self)
+            action.triggered.connect(lambda checked_, sn_=sn, action_=action:
+                                     self.on_device_action_triggered(checked_, sn_))
+            self.ui.menuDevices.addAction(action)
 
     def setup_signal(self):
         self.ui.actionStart.triggered.connect(self.on_action_start)
+        self.ui.actionVertical.triggered.connect(lambda triggered, angle=0: self.on_rotation_changed(angle))
+        self.ui.actionHorizontal.triggered.connect(lambda triggered, angle=90: self.on_rotation_changed(angle))
         self.ui.actionStop.triggered.connect(self.on_action_stop)
-
-        self.ui.actionMenu.triggered.connect(self.KeyEvent.menu)
-        self.ui.actionHome.triggered.connect(self.KeyEvent.home)
-        self.ui.actionBack.triggered.connect(self.KeyEvent.back)
-        self.ui.actionLock_Unlocak.triggered.connect(self.KeyEvent.lock_unlock)
+        self.ui.actionMenu.triggered.connect(KeyEvent.menu)
+        self.ui.actionHome.triggered.connect(KeyEvent.home)
+        self.ui.actionBack.triggered.connect(KeyEvent.back)
+        self.ui.actionLock_Unlocak.triggered.connect(KeyEvent.lock_unlock)
         self.ui.actionSend_text.triggered.connect(self.on_action_send_text)
-
         self.ui.actionRecorder.triggered.connect(self.on_action_recorder)
-
         self.ui.actionShare.triggered.connect(self.on_action_share)
         self.ui.actionRemote_screen.triggered.connect(self.on_action_remote_screen)
-
         self.ui.actionAbout.triggered.connect(self.on_action_about)
         self.ui.actionDonate.triggered.connect(self.on_action_donate)
-
         self.ui.actionQuit.triggered.connect(self.close)
 
     def update_ui_on_started(self, enable=True):
         self.ui.actionStart.setEnabled(not enable)
         self.ui.actionStop.setEnabled(enable)
         self.ui.actionShare.setEnabled(enable)
-        self.ui.tool_bar.setEnabled(enable)
         self.ui.menuEdit.setEnabled(enable)
+        self.ui.menuDevices.setEnabled(not enable)
 
     def update_ui_on_stopped(self):
         self.update_ui_on_started(enable=False)
 
-    def show_starting_dialog(self, title=_("First start"), text=_("Init env, please wait(about 6 seconds)..."),
+    def show_starting_dialog(self, title=_("First start"),
+                             text=_("Init env, please wait(about 6 seconds)..."),
                              cap_start=False):
         logger.debug("show starting dialog")
         if self.timer:
             return
-        max = 100
+        max_value = 30
         self.timer = QtCore.QTimer()
         self.starting_dialog = QtWidgets.QProgressDialog(self)
         self.starting_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
         self.starting_dialog.setWindowTitle(title)
         self.starting_dialog.setLabelText(text)
-        self.starting_dialog.setMaximum(max)
+        self.starting_dialog.setMaximum(max_value)
         self.starting_dialog.setCancelButton(None)
 
         def on_start_up_timer():
             value = self.starting_dialog.value()
-            if value >= max:
-                value = 0
             self.starting_dialog.setValue(value + 1)
-            if self.check_code == Checker.SUCCESS:
-                ret = install.get_pid_by_ps(install.minicap_bin)
-                if ret != -1:
-                    if not cap_start:
-                        self.dismiss_starting_dialog()
-                        return
-
-                    # 阻塞2秒后再连接，否则可能会因为minicap未启动完成导致的连接失败
-                    # 该操作会卡住UI，后面可修改为定时器的方式
-                    time.sleep(2)
+            pid = adb_helper.current_device().get_pid(config.MINICAP)
+            if pid:
+                logger.debug("minicap pid is %s" % pid)
+                if not cap_start:
                     self.dismiss_starting_dialog()
-                    self.on_action_start()
-                elif value >= 99:
-                    self.dismiss_starting_dialog()
-                    QtWidgets.QMessageBox.critical(
-                        self, _(config.TITLE_ERROR),
-                        _("Fatal error occurred, please restart"))
-                    self.close()
+                    return
+                self.dismiss_starting_dialog()
+                self.on_action_start(ready=True)
+                mini_touch_pid = adb_helper.current_device().get_pid(config.MINITOUCH)
+                logger.debug("minitouch pid is %s" % mini_touch_pid)
+            elif value >= max_value - 1:
+                self.dismiss_starting_dialog()
+                QtWidgets.QMessageBox.critical(
+                    self, _(config.TITLE_ERROR),
+                    _("Fatal error occurred, please restart"))
+                self.close()
 
         self.timer.timeout.connect(on_start_up_timer)
-        self.timer.start(60)
+        self.timer.start(100)
         self.starting_dialog.show()
 
     def dismiss_starting_dialog(self):
@@ -164,30 +183,31 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cap_screen.stop()
         self.on_action_disable_share()
         self.cap_screen = None
+        self.rotation_watcher.stop()
 
         self.update_ui_on_stopped()
 
-    def on_screenshots_result(self, filename):
-        Toast.show_(self, _("Saved: %s") % filename)
+    def on_screenshots_result(self, filename, show_toast=True):
+        if show_toast:
+            Toast.show_(self, _("Saved: %s") % filename)
 
-    def on_action_start(self):
-        if self.customer_running:
-            QtWidgets.QMessageBox.information(
-                self, _(config.TITLE_INFO),
-                _("You are sharing remote phone(%s), please disconnect at first") % self.ipc.get_share_id())
-            return
-
-        if self.is_first_start:
-            self.checker.check(config.MINICAP_PORT, config.MINITOUCH_PORT)
+    def on_action_start(self, ready=False):
+        if not ready:
+            self.rotation_watcher = RotationWatcher(self.on_rotation_changed, self.queue, adb_helper.current_device())
+            self.rotation_watcher.start()
+            adb_helper.start_mini_touch()
             self.show_starting_dialog(cap_start=True)
             return
 
-        self.cap_screen = CapScreen(
-            self.on_start_result, self.on_minicap_head,
-            self.on_frame, self.on_minitouch_connect_result,
-            self.on_screenshots_result, self.ui.screen,
-            config.MINICAP_HOST, config.MINICAP_PORT
-        )
+        self.cap_screen = CapScreen(self.on_start_result,
+                                    self.on_mini_cap_head,
+                                    self.on_frame,
+                                    self.on_mini_touch_connect_result,
+                                    self.on_screenshots_result,
+                                    self.ui.screen,
+                                    config.MINICAP_HOST,
+                                    config.MINICAP_PORT)
+
         self.cap_screen.start_()
         self.cap_used = True
         self.ui.actionStart.setEnabled(False)
@@ -203,18 +223,19 @@ class MainWindow(QtWidgets.QMainWindow):
                 _("Connect failed, please retry after reset your USB line"))
             self.close()
 
-    def on_minitouch_connect_result(self, ret):
+    def on_mini_touch_connect_result(self, ret):
         if not ret:
             QtWidgets.QMessageBox.warning(
                 self, _(config.TITLE_WARNING),
                 _("Fail to connect minitouch\nThe screen is OK, but you couldn't control"))
 
-    def on_minicap_head(self, head):
-        if head:
-            self.minicap_head = head
-            logger.debug("minicap head: %s" % head)
-            self.ui.screen.fit_size(head.real_height, head.real_width)
-            self.setFixedSize(self.sizeHint())
+    def on_mini_cap_head(self, head):
+        if not head:
+            return
+        self.mini_cap_head = head
+        w, h = adb_helper.device_real_size()
+        self.ui.screen.set_real_size(w, h)
+        self.setFixedSize(self.sizeHint())
 
     def on_frame(self, frame):
         self.ui.screen.refresh(frame)
@@ -222,50 +243,19 @@ class MainWindow(QtWidgets.QMainWindow):
             # 注意：只有在producer模式下
             if self.ipc.is_producer():
                 self.frame_queue.append(frame)
-            else:
-                # 拿到第一张图片时，适配下窗口的尺寸
-                # 如果没安装numpy和cv2库的话，那就不适配了，看起来比较丑，但也能用
-                if self.ipc.is_first_frame():
-                    try:
-                        import numpy as np
-                        import cv2
-                    except ImportError:
-                        np = None
-                        cv2 = None
-                        logger.warning("unable to import numpy and cv2")
-                    finally:
-                        self.ipc.set_first_frame(False)
-                    if np and cv2:
-                        img = cv2.imdecode(np.fromstring(frame, np.uint8), cv2.IMREAD_COLOR)
-                        height, width, _ = img.shape
-                        self.ui.screen.fit_size(height, width)
-
         if self.recording:
             if frame:
                 self.record_frames.append(frame)
 
-    def on_check_result(self, code, text):
-        self.check_code = code
-        if code != Checker.SUCCESS:
-            self.dismiss_starting_dialog()
-            QtWidgets.QMessageBox.critical(self, "CHECK FAILED", text, QtWidgets.QMessageBox.Ok)
-            self.close()
-        else:
-            if self.is_first_start:
-                self.on_action_start()
-                self.is_first_start = False
-            self.device_name = text
-            self.setWindowTitle("%s(%s)" % (version.app_name, text))
-            self.rw.start()
-
     def closeEvent(self, event):
         if self.cap_screen:
-            self.cap_screen.stop(kill_minicap=True, kill_minitouch=True, kill_rotation_watcher=True)
-        else:
-            # 只要连击过本地手机，关闭时都杀minicap/minitouch/rw
-            # 这可能会导致另一个正在连接的进程异常
-            if self.cap_used:
-                install.kill_all_in_thread()
+            self.cap_screen.stop()
+
+        adb_helper.p_kill(config.MINICAP)
+        adb_helper.p_kill(config.MINITOUCH)
+        if self.rotation_watcher:
+            self.rotation_watcher.stop()
+
         if self.ipc:
             self.ipc.stop()
 
@@ -274,12 +264,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         event.accept()
 
-    def on_rotation_changed(self, angle):
+    def on_rotation_changed(self, angle, virtual_width=config.DEFAULT_WIDTH):
+        logger.debug("on_rotation_changed. angle={}".format(angle))
+        self.angle = angle
         if self.cap_screen:
             self.cap_screen.stop()
-        util.init_minicap(port=config.MINICAP_PORT,
-                          angle=angle, restart=True,
-                          screen_height=self.ui.screen.get_screen_height())
+        adb_helper.restart_mini_cap(angle=angle, virtual_width=virtual_width)
         self.ui.screen.set_orientation(angle)
         self.show_starting_dialog(title=_("Rotating"), text=_("Adapting screen rotation, wait about 3 seconds"),
                                   cap_start=True)
@@ -330,43 +320,6 @@ class MainWindow(QtWidgets.QMainWindow):
         Toast.show_(self, _("Remote screen started, waiting frame ..."))
         logger.debug("remote screen started, pid: %d" % self.share_proc.pid)
         self.ui.actionRemote_screen.setText(_("Disconnect remote screen..."))
-    # 以下屏蔽的代码用于在本UI窗口内显示共享屏幕，因为此操作与连接本地手机互斥，且状态切换可能导致一些难以处理的错误，暂时屏蔽
-    # def on_action_remote_screen(self):
-    #     # 只有在未连接手机时才可启动
-    #     if self.cap_screen:
-    #         QtWidgets.QMessageBox.information(
-    #             self, _(config.TITLE_INFO),
-    #             _("You already connected to local device\nPlease disconnect before sharing"))
-    #         return
-    #     if self.customer_running:
-    #         if self.ipc:
-    #             self.ipc.stop()
-    #             self.ipc = None
-    #
-    #         # 清空当前画面，显示初始的LOGO画面
-    #         self.on_frame(None)
-    #         self.set_tip_message("")
-    #         self.customer_running = False
-    #         return
-    #
-    #     self.ipc = Ipc(self.on_rpc_event, Ipc.MODE_CUSTOMER)
-    #     share_id, ret = QtWidgets.QInputDialog.getInt(self, _("Remote share"), _("Please input your share id"))
-    #     if not ret:
-    #         self.ipc = None
-    #         return
-    #     if not self.ipc.is_valid_share_id(share_id):
-    #         QtWidgets.QMessageBox.critical(self, _(config.TITLE_ERROR), _("Illegal share id: %d") % share_id)
-    #         self.ipc = None
-    #         return
-    #
-    #     ret = self.ipc.customer_init(config.REDIS_HOST, config.REDIS_PORT, config.REDIS_DB, share_id=share_id)
-    #     if not ret:
-    #         self.ipc = None
-    #         return
-    #
-    #     self.ipc.start()
-    #     self.customer_running = True
-    #     self.set_tip_message(_("Sharing with ID: %d") % share_id)
 
     def update_frame_in_timer(self):
         size = len(self.frame_queue)
@@ -391,7 +344,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ipc = Ipc(self.on_rpc_event)
         ret, share_id = self.ipc.producer_init(config.REDIS_HOST, config.REDIS_PORT, config.REDIS_DB)
         if not ret:
-            QtWidgets.QMessageBox.critical(self, _(config.TITLE_ERROR), _("Fail to connect share server"))
+            QtWidgets.QMessageBox.critical(
+                self, _(config.TITLE_ERROR),
+                _("Fail to connect redis server\n%s:%d" % (config.REDIS_HOST, config.REDIS_PORT)))
             self.ipc = None
             return
 
@@ -420,7 +375,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.actionShare.setText(_("Enable share"))
 
     def on_action_about(self):
-        QtWidgets.QMessageBox.information(self, "ABOUT", version.about)
+        QtWidgets.QMessageBox.information(self, _("About"), version.about)
 
     def on_action_donate(self):
         self.donate_view.move(self.x() + self.width(), self.y())
@@ -455,10 +410,10 @@ class MainWindow(QtWidgets.QMainWindow):
         orientation = self.ui.screen.get_orientation()
         if orientation == self.ui.screen.VERTICAL:
             logger.debug("VERTICAL recorder")
-            width, height = self.minicap_head.virtual_width, self.minicap_head.virtual_height
+            width, height = self.mini_cap_head.virtual_width, self.mini_cap_head.virtual_height
         else:
             logger.debug("HORIZONTAL recorder")
-            width, height = self.minicap_head.virtual_height, self.minicap_head.virtual_width
+            width, height = self.mini_cap_head.virtual_height, self.mini_cap_head.virtual_width
         recorder.init(mp4file, 40, width, height)
         self.record_frames = []
 
@@ -470,9 +425,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.record_timer.stop()
 
         if len(self.record_frames) < 1:
-            QtWidgets.QMessageBox.critical(
-                self, _(config.TITLE_ERROR), _("No any frame, your screen didn't change!")
-            )
+            QtWidgets.QMessageBox.critical(self, _(config.TITLE_ERROR), _("No any frame, your screen didn't change!"))
             self.set_tip_message("")
             self.ui.actionRecorder.setText(_("Start video recorder ..."))
             return
@@ -495,26 +448,3 @@ class MainWindow(QtWidgets.QMainWindow):
         if text == "":
             text = "%s(%s)" % (version.app_name, self.device_name)
         self.setWindowTitle(text)
-
-    class KeyEvent:
-        CMD = "adb shell input keyevent %d"
-        HOME = 3
-        BACK = 4
-        MENU = 82
-        POWER = 26
-
-        @classmethod
-        def home(cls):
-            install.adb_cmd(cls.CMD % cls.HOME)
-
-        @classmethod
-        def back(cls):
-            install.adb_cmd(cls.CMD % cls.BACK)
-
-        @classmethod
-        def menu(cls):
-            install.adb_cmd(cls.CMD % cls.MENU)
-
-        @classmethod
-        def lock_unlock(cls):
-            install.adb_cmd(cls.CMD % cls.POWER)

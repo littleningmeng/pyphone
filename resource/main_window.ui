@@ -6,58 +6,62 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>333</width>
-    <height>747</height>
+    <width>320</width>
+    <height>720</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>PyPhone</string>
+   <string>pyphone</string>
   </property>
   <property name="windowIcon">
    <iconset resource="icons.qrc">
     <normaloff>:/app/icons/logo/pyphone48.png</normaloff>:/app/icons/logo/pyphone48.png</iconset>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QGridLayout" name="gridLayout">
-    <item row="0" column="0">
-     <widget class="Screen" name="screen">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>0</width>
-        <height>0</height>
-       </size>
-      </property>
-      <property name="sizeIncrement">
-       <size>
-        <width>0</width>
-        <height>0</height>
-       </size>
-      </property>
-      <property name="styleSheet">
-       <string notr="true"/>
-      </property>
-      <property name="frameShape">
-       <enum>QFrame::StyledPanel</enum>
-      </property>
-      <property name="frameShadow">
-       <enum>QFrame::Raised</enum>
-      </property>
-     </widget>
-    </item>
-   </layout>
+   <widget class="Screen" name="screen">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>0</y>
+      <width>320</width>
+      <height>720</height>
+     </rect>
+    </property>
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>0</width>
+      <height>0</height>
+     </size>
+    </property>
+    <property name="sizeIncrement">
+     <size>
+      <width>0</width>
+      <height>0</height>
+     </size>
+    </property>
+    <property name="styleSheet">
+     <string notr="true"/>
+    </property>
+    <property name="frameShape">
+     <enum>QFrame::StyledPanel</enum>
+    </property>
+    <property name="frameShadow">
+     <enum>QFrame::Raised</enum>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>333</width>
+     <width>320</width>
      <height>23</height>
     </rect>
    </property>
@@ -68,6 +72,12 @@
     <property name="title">
      <string>&amp;File</string>
     </property>
+    <widget class="QMenu" name="menuDevices">
+     <property name="title">
+      <string>Devices</string>
+     </property>
+    </widget>
+    <addaction name="menuDevices"/>
     <addaction name="actionStart"/>
     <addaction name="actionStop"/>
     <addaction name="separator"/>
@@ -91,7 +101,21 @@
     <property name="title">
      <string>&amp;Edit</string>
     </property>
+    <widget class="QMenu" name="menuRotation">
+     <property name="title">
+      <string>Rotation</string>
+     </property>
+     <addaction name="actionVertical"/>
+     <addaction name="actionHorizontal"/>
+    </widget>
+    <widget class="QMenu" name="menuImageQuality">
+     <property name="title">
+      <string>Image quality</string>
+     </property>
+    </widget>
     <addaction name="actionLock_Unlocak"/>
+    <addaction name="menuRotation"/>
+    <addaction name="menuImageQuality"/>
     <addaction name="separator"/>
     <addaction name="actionHome"/>
     <addaction name="actionBack"/>
@@ -106,8 +130,10 @@
    <addaction name="menuEdit"/>
    <addaction name="menuHelp"/>
   </widget>
-  <widget class="QStatusBar" name="statusBar"/>
   <action name="actionStart">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset resource="icons.qrc">
      <normaloff>:/app/icons/app/connected.png</normaloff>:/app/icons/app/connected.png</iconset>
@@ -262,6 +288,36 @@
   <action name="actionQuit">
    <property name="text">
     <string>&amp;Quit</string>
+   </property>
+  </action>
+  <action name="actionVertical">
+   <property name="text">
+    <string>Vertical</string>
+   </property>
+  </action>
+  <action name="actionHorizontal">
+   <property name="text">
+    <string>Horizontal</string>
+   </property>
+  </action>
+  <action name="actionLow">
+   <property name="text">
+    <string>Low(720P)</string>
+   </property>
+  </action>
+  <action name="actionMid">
+   <property name="text">
+    <string>Medium(1080P)</string>
+   </property>
+  </action>
+  <action name="actionHigh">
+   <property name="text">
+    <string>High(Orignal)</string>
+   </property>
+  </action>
+  <action name="action1">
+   <property name="text">
+    <string>1</string>
    </property>
   </action>
  </widget>
