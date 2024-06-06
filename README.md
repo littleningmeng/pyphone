@@ -66,3 +66,38 @@ adb install ADBKeyboard.apk # 注意有些安卓手机要求在手机上确认�
 adb shell ime set com.android.adbkeyboard/.AdbIME # 切换到ADBKeyboard输入法
 adb shell am broadcast -a ADB_INPUT_TEXT --es msg '中文输入'
 ```
+
+
+### 可能遇到的题  
+##### 1. minicap\jni\minicap-shared\aosp\libs下找不到比较新版本AndroidSDK的so怎么办？  
+可直接去这个仓库下载：https://github.com/DeviceFarmer/minicap  
+仓库的作者编译好了N多版本的so  
+
+##### 2. minitouch 启动失败怎么办？  
+可能会因为权限问题导致minitouch无法访问输入设备文件  
+```bash
+open: Permission denied
+Unable to open device /dev/input/event0 for inspectionopen: Permission denied
+Unable to open device /dev/input/event5 for inspectionopen: Permission denied
+Unable to open device /dev/input/event3 for inspectionopen: Permission denied
+Unable to open device /dev/input/event4 for inspectionopen: Permission denied
+Unable to open device /dev/input/mice for inspectionopen: Permission denied
+Unable to open device /dev/input/mouse0 for inspectionopen: Permission denied
+Unable to open device /dev/input/event1 for inspectionopen: Permission denied
+Unable to open device /dev/input/event6 for inspectionopen: Permission denied
+```  
+可以越狱手机，获得root权限，修改设备文件权限：  
+```bash
+adb root
+adb shell chmod 666 /dev/input/event*
+```
+
+推荐使用Pixel手机，刷入LineageOS，并通过刷入magisk获取root权限，获取root权限方法如下  
+
+访问https://magiskapp.com/apk/下载最新版magisk安装包（页面加载完成后，需要等待15秒左右才会出现“Download Magisk App (Latest)”按钮）  
+先在把刚刚下载的安装包，传到手机上正常安装，安装完成后打开Magisk应用，会提示“需要修复环境”，点击确认，之后会自动重启。
+进入Recovery模式，进入Apply Update->Apply from ADB，电脑上还是使用刚才下载的安装包，将文件后缀由apk改为zip，执行：  
+```bash
+adb sideload <magisk filename>.zip
+```
+magisk没有使用LineageOS 的密钥签名，手机会弹出警告，选择yes即可，安装完成后重启手机。  
